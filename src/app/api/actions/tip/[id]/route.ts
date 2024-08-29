@@ -40,7 +40,7 @@ async function getData(id: string): Promise<UserData | null> {
 }
 
 
-export async function GET (
+export async function GET(
     req: NextRequest,
     { params }: { params: { id: string } }
 ) {
@@ -118,7 +118,7 @@ export const OPTIONS = GET;
 // for post the url is like this:
 // http://localhost:3000/api/actions/tip/123?amount=0.1&message=Hello&rating=3
 
-export async function POST (
+export async function POST(
     req: NextRequest,
     { params }: { params: { id: string } }
 ) {
@@ -187,15 +187,21 @@ export async function POST (
             headers: ACTIONS_CORS_HEADERS,
         });
     } catch (err) {
-        console.log(err);
-        let actionError: ActionError = { message: "An unknown error occurred" };
-        if (typeof err == "string") actionError.message = err;
-        return NextResponse.json(actionError, { 
+        console.error("Error in POST:", err);
+
+        let message = "An unknown error occurred";
+        if (err instanceof Error) {
+            message = err.message;
+        } else if (typeof err === "string") {
+            message = err;
+        }
+
+        return NextResponse.json({ error: message }, {
             status: 400,
             headers: ACTIONS_CORS_HEADERS,
         });
     }
-};
+}
 
 function validatedQueryParams(requestUrl: URL) {
 
