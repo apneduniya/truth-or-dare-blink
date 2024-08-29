@@ -14,7 +14,7 @@ import {
     Transaction,
     TransactionInstruction,
 } from "@solana/web3.js";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 
 type UserData = {
@@ -102,7 +102,7 @@ export async function GET(
 
         if (typeof err == "string") message = err;
 
-        return new Response(message, {
+        return new NextResponse(message, {
             status: 400,
             headers: ACTIONS_CORS_HEADERS,
         });
@@ -110,7 +110,7 @@ export async function GET(
 }
 
 
-export const POST = async (req: Request) => {
+export const POST = async (req: NextRequest) => {
     const body: ActionPostRequest = await req.json();
 
     // insert transaction logic here    
@@ -126,7 +126,7 @@ export const POST = async (req: Request) => {
         message: "Transaction successful",
     }
 
-    return Response.json(payload, {
+    return NextResponse.json(payload, {
         headers: ACTIONS_CORS_HEADERS,
     });
 };
