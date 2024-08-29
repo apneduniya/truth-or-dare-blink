@@ -4,6 +4,7 @@ import {
     createPostResponse,
     ActionGetResponse,
     ActionPostRequest,
+    ActionError,
 } from "@solana/actions";
 import {
     clusterApiUrl,
@@ -65,7 +66,7 @@ export async function GET(
                         parameters: [
                             {
                                 type: "radio",
-                                name: "choice", // parameter name in the `href` above
+                                name: "rating", // parameter name in the `href` above
                                 label: "How much did you like it?", // placeholder of the text input
                                 required: true,
                                 options: [
@@ -114,24 +115,128 @@ export async function GET(
 export const OPTIONS = GET;
 
 
-export const POST = async (req: NextRequest) => {
-    const body: ActionPostRequest = await req.json();
+export const POST = async (
+    req: NextRequest,
+    { params }: { params: { id: string } }
+) => {
+    try {
+        const requestUrl = new URL(req.url);
+        const { amount, message, rating } = validatedQueryParams(requestUrl);
+        // Fetch the stored data for this tip
+        const tipData = await getData(params.id);
 
-    // insert transaction logic here    
+        if (!tipData) {
+            return NextResponse.json(
+                { error: 'Tip data not found' },
+                { status: 404, headers: ACTIONS_CORS_HEADERS }
+            );
+        }
 
-    // const payload: ActionPostResponse = await createPostResponse({
-    //     fields: {
-    // transaction,
-    //         message: "Optional message to include with transaction",
-    //     },
-    // });
+        const toPubkey = new PublicKey(tipData.walletAddress);
+        const body: ActionPostRequest = await req.json();
 
-    const payload = {
-        message: "Transaction successful",
+        // validate the client provided input
+        let account: PublicKey;
+        try {
+            account = new PublicKey(body.account);
+        } catch (err) {
+            throw 'Invalid "account" provided';
+        }
+
+        const connection = new Connection(
+            process.env.SOLANA_RPC! || clusterApiUrl("devnet"),
+        );
+
+        // ensure the receiving account will be rent exempt
+        const minimumBalance = await connection.getMinimumBalanceForRentExemption(
+            0, // note: simple accounts that just store native SOL have `0` bytes of data
+        );
+        if (amount * LAMPORTS_PER_SOL < minimumBalance) {
+            throw `account may not be rent exempt: ${toPubkey.toBase58()}`;
+        }
+
+        // create an instruction to transfer native SOL from one wallet to another
+        const transferSolInstruction = SystemProgram.transfer({
+            fromPubkey: account,
+            toPubkey: toPubkey,
+            lamports: amount * LAMPORTS_PER_SOL,
+        });
+
+        // get the latest blockhash amd block height
+        const { blockhash, lastValidBlockHeight } =
+            await connection.getLatestBlockhash();
+
+        // create a legacy transaction
+        const transaction = new Transaction({
+            feePayer: account,
+            blockhash,
+            lastValidBlockHeight,
+        }).add(transferSolInstruction);
+
+        const payload: ActionPostResponse = await createPostResponse({
+            fields: {
+                transaction,
+                message: `Rating: ${rating}. Message: ${message}.`,
+            },
+        });
+
+        return NextResponse.json(payload, {
+            headers: ACTIONS_CORS_HEADERS,
+        });
+    } catch (err) {
+        console.log(err);
+        let actionError: ActionError = { message: "An unknown error occurred" };
+        if (typeof err == "string") actionError.message = err;
+        return NextResponse.json(actionError, { 
+            status: 400,
+            headers: ACTIONS_CORS_HEADERS,
+        });
+    }
+};
+
+function validatedQueryParams(requestUrl: URL) {
+
+    let message: string = "";
+    let rating: string = "";
+    let amount: number = 0;
+    //   try {
+    //     if (requestUrl.searchParams.get("to")) {
+    //       toPubkey = new PublicKey(requestUrl.searchParams.get("to")!);
+    //     }
+    //   } catch (err) {
+    //     throw "Invalid input query parameter: to";
+    //   }
+
+    try {
+        if (requestUrl.searchParams.get("amount")) {
+            amount = parseFloat(requestUrl.searchParams.get("amount")!);
+        }
+
+        if (amount <= 0) throw "amount is too small";
+    } catch (err) {
+        throw "Invalid input query parameter: amount";
     }
 
-    return NextResponse.json(payload, {
-        headers: ACTIONS_CORS_HEADERS,
-    });
-};
+    try {
+        if (requestUrl.searchParams.get("message")) {
+            message = requestUrl.searchParams.get("message")!;
+        }
+    } catch (err) {
+        throw "Invalid input query parameter: message";
+    }
+
+    try {
+        if (requestUrl.searchParams.get("rating")) {
+            rating = requestUrl.searchParams.get("rating")!;
+        }
+    } catch (err) {
+        throw "Invalid input query parameter: rating";
+    }
+
+    return {
+        amount,
+        message,
+        rating,
+    };
+}
 
