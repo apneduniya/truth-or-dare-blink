@@ -61,7 +61,7 @@ export async function GET(
             links: {
                 actions: [
                     {
-                        href: `${baseHref}?amount={amount}&message={message}`,
+                        href: `${baseHref}?amount={amount}&message={message}&rating={rating}`,
                         label: 'Tip', // button text
                         parameters: [
                             {
@@ -114,6 +114,8 @@ export async function GET(
 // THIS WILL ENSURE CORS WORKS FOR BLINKS
 export const OPTIONS = GET;
 
+// for post the url is like this:
+// http://localhost:3000/api/actions/tip/123?amount=0.1&message=Hello&rating=3
 
 export const POST = async (
     req: NextRequest,
@@ -176,7 +178,7 @@ export const POST = async (
         const payload: ActionPostResponse = await createPostResponse({
             fields: {
                 transaction,
-                message: `Rating: ${rating}. Message: ${message}.`,
+                message: `Rating: ${rating}/5. Message: ${message}.`,
             },
         });
 
