@@ -32,6 +32,7 @@ async function getData(id: string): Promise<UserData | null> {
             },
         });
         const data: UserData | null = await response.json();
+        console.log(data);
         return data;
     } catch (error) {
         console.error("Error fetching data:", error);
@@ -62,7 +63,7 @@ export async function GET(
             links: {
                 actions: [
                     {
-                        href: `${baseHref}?amount={amount}&message={message}&rating={rating}`,
+                        href: `${baseHref}?amount={amount}&message={message}&rating={rating}&wallet=${data?.walletAddress}`,
                         label: 'Tip', // button text
                         parameters: [
                             {
@@ -124,18 +125,19 @@ export async function POST(
 ) {
     try {
         const requestUrl = new URL(req.url);
-        const { amount, message, rating } = validatedQueryParams(requestUrl);
-        // Fetch the stored data for this tip
-        const tipData = await getData(params.id);
+        const { amount, message, rating, wallet } = validatedQueryParams(requestUrl);
 
-        if (!tipData) {
-            return NextResponse.json(
-                { error: 'Tip data not found' },
-                { status: 404, headers: ACTIONS_CORS_HEADERS }
-            );
-        }
+        // // Fetch the stored data for this tip
+        // const tipData = await getData(params.id);
+        // if (!tipData) {
+        //     return NextResponse.json(
+        //         { error: 'Tip data not found' },
+        //         { status: 404, headers: ACTIONS_CORS_HEADERS }
+        //     );
+        // }
 
-        const toPubkey = new PublicKey(tipData.walletAddress);
+        // const toPubkey = new PublicKey(tipData.walletAddress);
+        const toPubkey = new PublicKey(wallet);
         const body: ActionPostRequest = await req.json();
 
         // validate the client provided input
@@ -196,7 +198,7 @@ export async function POST(
             message = err;
         }
 
-        return NextResponse.json({ error: message }, {
+        return NextResponse.json({ error: `${message}` }, {
             status: 400,
             headers: ACTIONS_CORS_HEADERS,
         });
@@ -208,6 +210,7 @@ function validatedQueryParams(requestUrl: URL) {
     let message: string = "";
     let rating: string = "";
     let amount: number = 0;
+    let wallet: string = "";
     //   try {
     //     if (requestUrl.searchParams.get("to")) {
     //       toPubkey = new PublicKey(requestUrl.searchParams.get("to")!);
@@ -224,6 +227,14 @@ function validatedQueryParams(requestUrl: URL) {
         if (amount <= 0) throw "amount is too small";
     } catch (err) {
         throw "Invalid input query parameter: amount";
+    }
+
+    try {
+        if (requestUrl.searchParams.get("wallet")) {
+            wallet = requestUrl.searchParams.get("wallet")!;
+        }
+    } catch (err) {
+        throw "Invalid input query parameter: wallet";
     }
 
     try {
@@ -246,6 +257,7 @@ function validatedQueryParams(requestUrl: URL) {
         amount,
         message,
         rating,
+        wallet,
     };
 }
 
