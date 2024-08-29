@@ -92,7 +92,7 @@ export async function GET(
             },
         };
 
-        return Response.json(payload, {
+        return NextResponse.json(payload, {
             headers: ACTIONS_CORS_HEADERS,
         });
     } catch (err) {
@@ -108,6 +108,10 @@ export async function GET(
         });
     }
 }
+
+// DO NOT FORGET TO INCLUDE THE `OPTIONS` HTTP METHOD
+// THIS WILL ENSURE CORS WORKS FOR BLINKS
+export const OPTIONS = GET;
 
 
 export const POST = async (req: NextRequest) => {
