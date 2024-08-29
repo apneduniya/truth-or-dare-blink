@@ -40,16 +40,17 @@ async function getData(id: string): Promise<UserData | null> {
 }
 
 
-export async function GET(
+export async function GET (
     req: NextRequest,
     { params }: { params: { id: string } }
 ) {
     try {
         const requestUrl = new URL(req.url || "");
         const baseHref = new URL(
-            `/api/actions/tip`,
+            `/api/actions/tip/${params.id}`,
             requestUrl.origin
         ).toString();
+        console.log(baseHref);
         const id = params.id;
         const data = await getData(id as string);
 
@@ -117,10 +118,10 @@ export const OPTIONS = GET;
 // for post the url is like this:
 // http://localhost:3000/api/actions/tip/123?amount=0.1&message=Hello&rating=3
 
-export const POST = async (
+export async function POST (
     req: NextRequest,
     { params }: { params: { id: string } }
-) => {
+) {
     try {
         const requestUrl = new URL(req.url);
         const { amount, message, rating } = validatedQueryParams(requestUrl);
